@@ -47,21 +47,17 @@ export const ReleasesView = {
     </div>
     <div class="panel span-7">
       <h2>正式发布</h2>
-      <p class="hint">发布页与规则页同源：人群列联查互斥组。</p>
-      <table><thead><tr><th>开关</th><th>环境</th><th>版本</th><th>人群</th><th>互斥组</th><th>说明</th></tr></thead>
+      <table><thead><tr><th>开关</th><th>环境</th><th>版本</th><th>说明</th></tr></thead>
       <tbody>
         <tr v-for="r in official" :key="r.id">
-          <td>{{ r.flag_key }}</td><td>{{ r.env_code }}</td><td>v{{ r.version }}</td>
-          <td>{{ r.cohort_code || '—' }}</td>
-          <td><span class="pill warn" v-if="r.cohort_mutex_group">{{ r.cohort_mutex_group }}</span><span v-else>—</span></td>
-          <td>{{ r.summary }}</td>
+          <td>{{ r.flag_key }}</td><td>{{ r.env_code }}</td><td>v{{ r.version }}</td><td>{{ r.summary }}</td>
         </tr>
       </tbody></table>
       <h2 style="margin-top:1rem">影子发布</h2>
-      <table><thead><tr><th>ID</th><th>开关</th><th>人群</th><th>状态</th><th></th></tr></thead>
+      <table><thead><tr><th>ID</th><th>开关</th><th>状态</th><th></th></tr></thead>
       <tbody>
         <tr v-for="s in shadows" :key="'s'+s.id">
-          <td>{{ s.id }}</td><td>{{ s.flag_id }}</td><td>{{ s.cohort_code || '—' }}</td><td>{{ s.status }}</td>
+          <td>{{ s.id }}</td><td>{{ s.flag_id }}</td><td>{{ s.status }}</td>
           <td><button class="btn secondary" v-if="s.status==='open'" @click="promote(s.id)">升正</button></td>
         </tr>
       </tbody></table>

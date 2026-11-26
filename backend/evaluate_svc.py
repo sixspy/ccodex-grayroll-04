@@ -6,8 +6,7 @@ from pydantic import BaseModel
 
 from auth import current_user
 from db import connect
-import cohort_source
-from policies import cohort_hit as resolve_cohort_hit, combine_rule, eval_percent
+from policies import combine_rule, eval_percent
 from validators import require_str
 
 router = APIRouter(prefix="/api/evaluate", tags=["evaluate"])
@@ -76,10 +75,13 @@ def evaluate(body: EvalIn, authorization: str | None = Header(default=None)):
             }
         percent_hit = eval_percent(subject, int(rule["percent"]), flag_key)
         cohort_hit = False
-        mutex_conflict = False
         if rule["cohort_id"]:
-            # 联查 cohort_members × cohorts.mutex_group：互斥组第二挂不计命中
-            cohort_hit, mutex_conflict = resolve_cohort_hit(conn, rule["cohort_id"], subject)
+            cohort_hit = bool(
+                conn.execute(
+                    "SELECT 1 FROM cohort_members WHERE cohort_id=? AND subject_key=?",
+                    (rule["cohort_id"], subject),
+                ).fetchone()
+            )
         enabled = combine_rule(rule["kind"], percent_hit, cohort_hit)
         return {
             "enabled": enabled,
@@ -88,8 +90,6 @@ def evaluate(body: EvalIn, authorization: str | None = Header(default=None)):
             "percent": rule["percent"],
             "percent_hit": percent_hit,
             "cohort_hit": cohort_hit,
-            "cohort_id": rule["cohort_id"],
-            "mutex_conflict": mutex_conflict,
             "version": rule["version"],
             "flag_key": flag_key,
             "env_code": env_code,
@@ -99,12 +99,24 @@ def evaluate(body: EvalIn, authorization: str | None = Header(default=None)):
 
 @router.get("/board")
 def eval_board(authorization: str | None = Header(default=None)):
-    """总览：各环境正式规则摘要（与规则页/发布页/对比页同源）。"""
+    """总览：各环境正式规则摘要。"""
     current_user(authorization)
     with connect() as conn:
-        rules = cohort_source.official_rule_rows(conn)
+        rows = [
+            dict(r)
+            for r in conn.execute(
+                """
+                SELECT f.key AS flag_key, f.status, e.code AS env_code, r.kind, r.percent, r.version, r.cohort_id
+                FROM flag_rules r
+                JOIN flags f ON f.id=r.flag_id
+                JOIN environments e ON e.id=r.env_id
+                WHERE r.official=1
+                ORDER BY f.key, e.risk_level
+                """
+            ).fetchall()
+        ]
         by_status = [
             dict(x)
             for x in conn.execute("SELECT status, COUNT(*) c FROM flags GROUP BY status").fetchall()
         ]
-    return {"rules": rules, "by_status": by_status}
+    return {"rules": rows, "by_status": by_status}

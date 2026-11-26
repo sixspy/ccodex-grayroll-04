@@ -42,23 +42,17 @@ export const RulesView = {
     </div>
     <div class="panel span-7">
       <h2>正式规则</h2>
-      <p class="hint">人群列联查互斥组：同一主体不得跨册双挂。</p>
-      <table><thead><tr><th>开关</th><th>环境</th><th>类型</th><th>%</th><th>人群</th><th>互斥组</th><th>版本</th></tr></thead>
+      <table><thead><tr><th>开关</th><th>环境</th><th>类型</th><th>%</th><th>版本</th></tr></thead>
       <tbody>
         <tr v-for="r in official" :key="r.id">
-          <td>{{ r.flag_key }}</td><td>{{ r.env_code }}</td><td>{{ r.kind }}</td><td>{{ r.percent }}</td>
-          <td>{{ r.cohort_code || '—' }}</td>
-          <td><span class="pill warn" v-if="r.cohort_mutex_group">{{ r.cohort_mutex_group }}</span><span v-else>—</span></td>
-          <td>v{{ r.version }}</td>
+          <td>{{ r.flag_key }}</td><td>{{ r.env_code }}</td><td>{{ r.kind }}</td><td>{{ r.percent }}</td><td>v{{ r.version }}</td>
         </tr>
       </tbody></table>
       <h2 style="margin-top:1rem">影子草案</h2>
-      <table><thead><tr><th>ID</th><th>开关</th><th>环境</th><th>人群</th><th>状态</th><th></th></tr></thead>
+      <table><thead><tr><th>ID</th><th>开关</th><th>环境</th><th>状态</th><th></th></tr></thead>
       <tbody>
         <tr v-for="s in shadows" :key="s.id">
-          <td>{{ s.id }}</td><td>{{ s.flag_id }}</td><td>{{ s.env_id }}</td>
-          <td>{{ s.cohort_code || '—' }}</td>
-          <td>{{ s.status }}</td>
+          <td>{{ s.id }}</td><td>{{ s.flag_id }}</td><td>{{ s.env_id }}</td><td>{{ s.status }}</td>
           <td><button class="btn secondary" v-if="s.status==='open'" @click="promote(s.id)">升正</button></td>
         </tr>
       </tbody></table>

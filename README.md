@@ -16,9 +16,6 @@
 
 正确性口径只能走甲乙中的一种且两边不得混用。
 
-> **grayroll-04 已拍板封死**：互斥人群第二挂只走甲路径（正式成员册零增、拒写）；
-> 乙路径不启用，偏航拒写并记痕。详见 [`docs/grayroll-04-mutex-decision.md`](docs/grayroll-04-mutex-decision.md)。
-
 ## 一键起环境
 
 ```bash

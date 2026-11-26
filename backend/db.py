@@ -23,10 +23,9 @@ PRODUCT_META = {
 
 def connect() -> sqlite3.Connection:
     DATA.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(DB_PATH, check_same_thread=False, timeout=10.0)
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys=ON")
-    conn.execute("PRAGMA busy_timeout=8000")
     return conn
 
 
@@ -51,8 +50,7 @@ CREATE TABLE IF NOT EXISTS cohorts(
   code TEXT UNIQUE NOT NULL,
   title TEXT NOT NULL,
   member_count INTEGER NOT NULL DEFAULT 0,
-  note TEXT NOT NULL DEFAULT '',
-  mutex_group TEXT NOT NULL DEFAULT ''
+  note TEXT NOT NULL DEFAULT ''
 );
 CREATE TABLE IF NOT EXISTS cohort_members(
   id INTEGER PRIMARY KEY,
@@ -165,22 +163,6 @@ CREATE TABLE IF NOT EXISTS contention_marks(
   winner TEXT NOT NULL,
   created_at REAL NOT NULL
 );
-CREATE TABLE IF NOT EXISTS mutex_rejections(
-  id INTEGER PRIMARY KEY,
-  subject_key TEXT NOT NULL,
-  cohort_id INTEGER NOT NULL,
-  mutex_group TEXT NOT NULL,
-  attempted_by TEXT NOT NULL,
-  created_at REAL NOT NULL
-);
-CREATE TABLE IF NOT EXISTS policy_divergences(
-  id INTEGER PRIMARY KEY,
-  scope TEXT NOT NULL,
-  requested_path TEXT NOT NULL,
-  actor TEXT NOT NULL,
-  detail TEXT NOT NULL,
-  created_at REAL NOT NULL
-);
 CREATE TABLE IF NOT EXISTS rollout_schedules(
   id INTEGER PRIMARY KEY,
   flag_id INTEGER NOT NULL REFERENCES flags(id),
@@ -222,8 +204,8 @@ def seed(conn: sqlite3.Connection) -> None:
         )
     for c in _load("cohorts.json"):
         conn.execute(
-            "INSERT INTO cohorts(id, code, title, member_count, note, mutex_group) VALUES(?,?,?,?,?,?)",
-            (c["id"], c["code"], c["title"], c["member_count"], c.get("note", ""), c.get("mutex_group", "")),
+            "INSERT INTO cohorts(id, code, title, member_count, note) VALUES(?,?,?,?,?)",
+            (c["id"], c["code"], c["title"], c["member_count"], c.get("note", "")),
         )
     for m in _load("cohort_members.json"):
         conn.execute(
@@ -297,50 +279,8 @@ def seed(conn: sqlite3.Connection) -> None:
     conn.execute("INSERT INTO experiment_bridge_stub(id, note) VALUES(1, ?)", ("实验平台桥接空桩未接通",))
 
 
-def _migrate(conn: sqlite3.Connection) -> None:
-    """兼容旧单文件库：补 mutex_group 列（幂等）。"""
-    cols = {r["name"] for r in conn.execute("PRAGMA table_info(cohorts)").fetchall()}
-    if "mutex_group" not in cols:
-        conn.execute("ALTER TABLE cohorts ADD COLUMN mutex_group TEXT NOT NULL DEFAULT ''")
-
-
-def _ensure_mutex_fixtures(conn: sqlite3.Connection) -> None:
-    """兼容既有单文件库：补 grayroll-04 互斥人群与首挂成员（幂等，不覆盖既有数据）。"""
-    for c in _load("cohorts.json"):
-        if not c.get("mutex_group"):
-            continue
-        row = conn.execute("SELECT id FROM cohorts WHERE code=?", (c["code"],)).fetchone()
-        if row:
-            conn.execute(
-                "UPDATE cohorts SET mutex_group=? WHERE id=? AND mutex_group=''",
-                (c["mutex_group"], row["id"]),
-            )
-            continue
-        conn.execute(
-            "INSERT INTO cohorts(id, code, title, member_count, note, mutex_group) VALUES(?,?,?,0,?,?)",
-            (c["id"], c["code"], c["title"], c.get("note", ""), c["mutex_group"]),
-        )
-    for m in _load("cohort_members.json"):
-        if m["cohort_id"] not in (4, 5):
-            continue
-        if conn.execute(
-            "SELECT 1 FROM cohort_members WHERE cohort_id=? AND subject_key=?",
-            (m["cohort_id"], m["subject_key"]),
-        ).fetchone():
-            continue
-        conn.execute(
-            "INSERT INTO cohort_members(cohort_id, subject_key) VALUES(?,?)",
-            (m["cohort_id"], m["subject_key"]),
-        )
-        conn.execute(
-            "UPDATE cohorts SET member_count = member_count + 1 WHERE id=?", (m["cohort_id"],)
-        )
-
-
 def init_db() -> None:
     with connect() as conn:
         conn.executescript(SCHEMA)
-        _migrate(conn)
         seed(conn)
-        _ensure_mutex_fixtures(conn)
         conn.commit()
