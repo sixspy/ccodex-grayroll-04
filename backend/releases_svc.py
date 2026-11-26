@@ -6,6 +6,7 @@ import time
 from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel
 
+import cohort_source
 from audit_svc import write_audit, write_history
 from auth import current_user, require_writer
 from db import connect
@@ -30,20 +31,9 @@ class PublishIn(BaseModel):
 def list_releases(authorization: str | None = Header(default=None)):
     current_user(authorization)
     with connect() as conn:
-        official = [
-            dict(r)
-            for r in conn.execute(
-                """
-                SELECT rel.*, f.key AS flag_key, e.code AS env_code
-                FROM releases rel
-                JOIN flags f ON f.id=rel.flag_id
-                JOIN environments e ON e.id=rel.env_id
-                WHERE rel.official=1
-                ORDER BY rel.id DESC
-                """
-            ).fetchall()
-        ]
-        shadows = [dict(r) for r in conn.execute("SELECT * FROM release_shadows ORDER BY id DESC").fetchall()]
+        # 与规则页/求值页同源：人群与互斥组由 cohort_source 统一取数
+        official = cohort_source.release_rows(conn)
+        shadows = cohort_source.release_shadow_rows(conn)
     return {"official": official, "shadows": shadows}
 
 

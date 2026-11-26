@@ -6,6 +6,7 @@ import time
 from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel
 
+import cohort_source
 from audit_svc import write_audit, write_history
 from auth import current_user, require_writer
 from db import connect
@@ -28,25 +29,9 @@ class ShadowBindIn(BaseModel):
 def list_rules(authorization: str | None = Header(default=None)):
     current_user(authorization)
     with connect() as conn:
-        official = [
-            dict(r)
-            for r in conn.execute(
-                """
-                SELECT r.*, f.key AS flag_key, e.code AS env_code
-                FROM flag_rules r
-                JOIN flags f ON f.id=r.flag_id
-                JOIN environments e ON e.id=r.env_id
-                WHERE r.official=1
-                ORDER BY r.id
-                """
-            ).fetchall()
-        ]
-        shadows = [
-            dict(r)
-            for r in conn.execute(
-                "SELECT * FROM rule_shadows ORDER BY id DESC"
-            ).fetchall()
-        ]
+        # 与求值页/发布页/对比页同源：统一经 cohort_source 取数
+        official = cohort_source.official_rule_rows(conn)
+        shadows = cohort_source.rule_shadow_rows(conn)
     return {"official": official, "shadows": shadows}
 
 

@@ -17,6 +17,7 @@ export const EvaluateView = {
   <div class="grid">
     <div class="panel span-5">
       <h2>在线求值</h2>
+      <p class="hint">命中与单一人群成员同源；互斥组第二挂（含未升正）不计命中。</p>
       <div class="field"><label>开关键</label><input v-model="form.flag_key" /></div>
       <div class="field"><label>环境</label>
         <select v-model="form.env_code"><option>dev</option><option>staging</option><option>prod</option></select>
@@ -25,14 +26,21 @@ export const EvaluateView = {
       <button class="btn" @click="run">求值</button>
       <div class="err" v-if="err">{{ err }}</div>
       <pre v-if="result" style="margin-top:0.8rem">{{ result }}</pre>
+      <div v-if="result" style="margin-top:0.5rem">
+        <span class="pill" :class="result.enabled ? '' : 'danger'">{{ result.enabled ? '命中' : '未命中' }}</span>
+        <span class="pill warn" v-if="result.mutex_conflict">互斥冲突：第二挂不生效</span>
+      </div>
     </div>
     <div class="panel span-7">
       <h2>正式规则板</h2>
       <table v-if="board">
-        <thead><tr><th>开关</th><th>环境</th><th>类型</th><th>%</th><th>版本</th></tr></thead>
+        <thead><tr><th>开关</th><th>环境</th><th>类型</th><th>%</th><th>人群</th><th>互斥组</th><th>版本</th></tr></thead>
         <tbody>
           <tr v-for="(r,i) in board.rules" :key="i">
-            <td>{{ r.flag_key }}</td><td>{{ r.env_code }}</td><td>{{ r.kind }}</td><td>{{ r.percent }}</td><td>v{{ r.version }}</td>
+            <td>{{ r.flag_key }}</td><td>{{ r.env_code }}</td><td>{{ r.kind }}</td><td>{{ r.percent }}</td>
+            <td>{{ r.cohort_code || '—' }}</td>
+            <td><span class="pill warn" v-if="r.cohort_mutex_group">{{ r.cohort_mutex_group }}</span><span v-else>—</span></td>
+            <td>v{{ r.version }}</td>
           </tr>
         </tbody>
       </table>

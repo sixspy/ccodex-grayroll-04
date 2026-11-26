@@ -38,11 +38,17 @@ export const CompareView = {
             <tr v-for="row in matrix.matrix" :key="row.flag_id">
               <td>{{ row.flag_key }}</td>
               <td v-for="c in row.cells" :key="c.env_id">
-                <span v-if="c.has_rule">{{ c.percent }}% v{{ c.version }}</span>
+                <span v-if="c.has_rule">{{ c.percent }}% v{{ c.version }}<br /><small class="muted">{{ c.cohort_code || '—' }}</small></span>
                 <span v-else class="muted">—</span>
               </td>
             </tr>
           </tbody>
+        </table>
+        <h2 style="margin-top:1rem">互斥双挂冲突</h2>
+        <p class="hint" v-if="!matrix.mutex_conflicts || !matrix.mutex_conflicts.length">无跨册双挂。</p>
+        <table v-if="matrix.mutex_conflicts && matrix.mutex_conflicts.length">
+          <thead><tr><th>主体</th><th>互斥组</th><th>挂靠册数</th></tr></thead>
+          <tbody><tr v-for="(m,i) in matrix.mutex_conflicts" :key="i"><td>{{ m.subject_key }}</td><td>{{ m.mutex_group }}</td><td>{{ m.books }}</td></tr></tbody>
         </table>
       </div>
     </div>

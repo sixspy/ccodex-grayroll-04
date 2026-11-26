@@ -33,5 +33,15 @@
     "id": 7,
     "cohort_id": 3,
     "subject_key": "u-3002"
+  },
+  {
+    "id": 8,
+    "cohort_id": 4,
+    "subject_key": "s-dual"
+  },
+  {
+    "id": 9,
+    "cohort_id": 5,
+    "subject_key": "u-bonly"
   }
 ]

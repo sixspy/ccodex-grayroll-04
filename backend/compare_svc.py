@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Header, HTTPException
 
+import cohort_source
 from auth import current_user
 from db import connect
 from validators import require_int
@@ -23,6 +24,12 @@ def compare_flag_env(flag_id: int, env_id: int, authorization: str | None = Head
         official = conn.execute(
             "SELECT * FROM flag_rules WHERE flag_id=? AND env_id=? AND official=1", (fid, eid)
         ).fetchone()
+        official_cohort = None
+        if official and official["cohort_id"]:
+            official_cohort = conn.execute(
+                "SELECT id, code, title, mutex_group FROM cohorts WHERE id=?",
+                (official["cohort_id"],),
+            ).fetchone()
         rule_shadows = [
             dict(r)
             for r in conn.execute(
@@ -30,6 +37,14 @@ def compare_flag_env(flag_id: int, env_id: int, authorization: str | None = Head
                 (fid, eid),
             ).fetchall()
         ]
+        for sh in rule_shadows:
+            if sh.get("cohort_id"):
+                c = conn.execute(
+                    "SELECT code, mutex_group FROM cohorts WHERE id=?", (sh["cohort_id"],)
+                ).fetchone()
+                if c:
+                    sh["cohort_code"] = c["code"]
+                    sh["cohort_mutex_group"] = c["mutex_group"]
         release_shadows = [
             dict(r)
             for r in conn.execute(
@@ -61,6 +76,7 @@ def compare_flag_env(flag_id: int, env_id: int, authorization: str | None = Head
         "flag": dict(fl),
         "env": dict(env),
         "official_rule": dict(official) if official else None,
+        "official_cohort": dict(official_cohort) if official_cohort else None,
         "open_rule_shadows": rule_shadows,
         "open_release_shadows": release_shadows,
         "open_kill_shadows": kill_shadows,
@@ -76,10 +92,9 @@ def compare_matrix(authorization: str | None = Header(default=None)):
     with connect() as conn:
         flags = [dict(r) for r in conn.execute("SELECT id, key, status FROM flags ORDER BY id").fetchall()]
         envs = [dict(r) for r in conn.execute("SELECT id, code FROM environments ORDER BY risk_level").fetchall()]
-        rules = {
-            (r["flag_id"], r["env_id"]): dict(r)
-            for r in conn.execute("SELECT * FROM flag_rules WHERE official=1").fetchall()
-        }
+        # 与规则页/求值页/发布页同源：统一经 cohort_source 取数
+        rules = cohort_source.official_rules_indexed(conn)
+        conflicts = cohort_source.mutex_conflicts(conn)
         matrix = []
         for f in flags:
             row = {"flag_id": f["id"], "flag_key": f["key"], "status": f["status"], "cells": []}
@@ -93,7 +108,10 @@ def compare_matrix(authorization: str | None = Header(default=None)):
                         "percent": rule["percent"] if rule else None,
                         "version": rule["version"] if rule else None,
                         "kind": rule["kind"] if rule else None,
+                        "cohort_id": rule["cohort_id"] if rule else None,
+                        "cohort_code": rule.get("cohort_code") if rule else None,
+                        "cohort_mutex_group": rule.get("cohort_mutex_group") if rule else None,
                     }
                 )
             matrix.append(row)
-    return {"envs": envs, "matrix": matrix}
+    return {"envs": envs, "matrix": matrix, "mutex_conflicts": conflicts}

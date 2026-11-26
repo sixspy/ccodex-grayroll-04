@@ -19,5 +19,21 @@
     "title": "早鸟会员",
     "member_count": 2,
     "note": "会员早鸟"
+  },
+  {
+    "id": 4,
+    "code": "mx_dual_a",
+    "title": "互斥人群 A",
+    "member_count": 1,
+    "note": "grayroll-04 互斥组 mx-dual 甲册",
+    "mutex_group": "mx-dual"
+  },
+  {
+    "id": 5,
+    "code": "mx_dual_b",
+    "title": "互斥人群 B",
+    "member_count": 1,
+    "note": "grayroll-04 互斥组 mx-dual 乙册",
+    "mutex_group": "mx-dual"
   }
 ]
